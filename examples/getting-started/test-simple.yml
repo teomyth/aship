@@ -1,0 +1,19 @@
+name: test-simple
+description: Simple test for new display format
+
+playbooks:
+  test: playbooks/demo.yml
+
+vars:
+  ssh_key_source:
+    type: string
+    description: |
+      SSH key source for importing public keys
+      
+      Supported formats:
+      • GitHub: gh:username
+      • GitLab: gl:username  
+      • Launchpad: lp:username
+      • Direct URL: https://example.com/keys.pub
+    default: "gh:your-username"
+    required: true

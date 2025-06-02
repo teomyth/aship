@@ -1,0 +1,102 @@
+name: getting-started
+description: Simple aship demonstration project
+
+# Two core playbooks demonstrating aship features
+playbooks:
+  demo: playbooks/demo.yml
+  setup-ssh: playbooks/setup-ssh.yml
+
+# Simple variables demonstrating core aship features
+vars:
+  # Basic string variable
+  app_name:
+    type: string
+    description: Application name for deployment
+    default: "hello-aship"
+    required: true
+
+  # Environment choice
+  app_environment:
+    type: choice
+    description: Target deployment environment
+    choices: [development, staging, production]
+    default: development
+
+  # Port number with validation
+  app_port:
+    type: int
+    description: Application port number
+    default: 3000
+    min: 1000
+    max: 9999
+
+  # Boolean flag
+  enable_ssl:
+    type: bool
+    description: Enable SSL/HTTPS support
+    default: false
+
+  # List of services
+  services:
+    type: list
+    description: Services to deploy
+    default: ["web", "api"]
+
+  # Multi-select frameworks
+  frameworks:
+    type: multiselect
+    description: Frameworks to configure
+    choices: ["express", "react", "vue", "angular"]
+    default: ["express", "react"]
+
+  # Password field
+  admin_password:
+    type: password
+    description: Administrator password
+    required: true
+
+  # SSH key source for setup-ssh playbook
+  ssh_key_source:
+    type: string
+    description: |
+      SSH key source for importing public keys
+
+      Supported formats:
+      • GitHub: gh:username
+      • GitLab: gl:username
+      • Launchpad: lp:username
+      • Direct URL: https://example.com/keys.pub
+    default: "gh:your-username"
+    required: true
+
+  # SSH port configuration
+  ssh_port:
+    type: int
+    description: SSH daemon port number
+    default: 22
+    min: 1
+    max: 65535
+
+  # Project name for setup-ssh
+  project_name:
+    type: string
+    description: Project name for SSH configuration
+    default: "my-project"
+
+# Simple tags demonstrating clear functionality
+tags:
+  # Basic tags with clear purposes
+  info: "Display application information and variables"
+  setup: "Setup application environment"
+  deploy: "Deploy application services"
+  test: "Run application tests"
+
+  # Default tags (automatically selected)
+  default: ["info", "setup"]
+
+  # Tag groups for common scenarios
+  basic: ["info", "setup"]
+  full: ["info", "setup", "deploy", "test"]
+
+  # Test: Can groups reference other groups? (This should NOT work currently)
+  # extended: ["basic", "deploy"]  # This would try to use "basic" as a tag name

@@ -1,0 +1,32 @@
+---
+# Test role default variables
+
+# Web server port
+# Type: number
+# Min: 1
+# Max: 65535
+web_port: 80
+
+# Enable SSL
+# Type: boolean
+enable_ssl: false
+
+# SSL certificate path
+# Type: string
+ssl_cert_path: "/etc/ssl/certs/test.crt"
+
+# List of allowed hosts
+# Type: list
+allowed_hosts:
+  - "localhost"
+  - "127.0.0.1"
+
+# Database configuration
+# Type: dict
+# Group: Database
+db_config:
+  host: "localhost"
+  port: 5432
+  name: "test_db"
+  user: "test_user"
+  password: "test_password"

@@ -1,0 +1,28 @@
+# Source code
+src/
+tests/
+__tests__/
+
+# Configuration files
+tsconfig.json
+.eslintrc
+.prettierrc
+biome.json
+vitest.config.ts
+
+# Development files
+*.log
+*.tsbuildinfo
+coverage/
+.nyc_output/
+.turbo/
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db

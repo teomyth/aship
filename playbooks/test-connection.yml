@@ -1,0 +1,6 @@
+---
+- name: Test Connection Playbook
+  hosts: all
+  tasks:
+    - name: Echo test
+      shell: echo "Hello, world!"

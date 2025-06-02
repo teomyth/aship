@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+test-project/
+test-*.js
+inventory.ini
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+tasks/
+
+# Turborepo
+.turbo
+
+# Archive files
+.archive/
+
+*.tgz
+
+.pnpm-store
+
+.history
+
+# Aship local configuration directory (contains sensitive data and cache)
+.aship/

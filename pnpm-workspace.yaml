@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+ignoredBuiltDependencies:
+  - cpu-features
+  - esbuild
+  - ssh2
+onlyBuiltDependencies:
+  - '@biomejs/biome'

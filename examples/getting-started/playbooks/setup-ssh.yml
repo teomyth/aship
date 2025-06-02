@@ -1,0 +1,85 @@
+---
+- name: SSH Key Management and Configuration
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # These variables will be collected by aship smart collection
+    ssh_key_source: "{{ ssh_key_source }}"
+    ssh_port: "{{ ssh_port | default(22) }}"
+    project_name: "{{ project_name | default('my-project') }}"
+    admin_password: "{{ admin_password }}"
+
+  tasks:
+    - name: Display SSH configuration
+      debug:
+        msg: |
+          🔑 SSH Key Management Setup
+          Key source: {{ ssh_key_source }}
+          SSH port: {{ ssh_port }}
+          Project: {{ project_name }}
+
+    - name: Parse SSH key source format
+      set_fact:
+        key_provider: "{{ ssh_key_source.split(':')[0] }}"
+        key_username: "{{ ssh_key_source.split(':')[1] }}"
+      when: "':' in ssh_key_source"
+
+    - name: GitHub key import simulation
+      debug:
+        msg: |
+          📥 Simulating SSH key import from GitHub
+          Command would be: ssh-import-id {{ ssh_key_source }}
+          This would import public keys for user: {{ key_username }}
+          Keys would be added to ~/.ssh/authorized_keys
+      when: key_provider in ['gh', 'github']
+
+    - name: GitLab key import simulation
+      debug:
+        msg: |
+          📥 Simulating SSH key import from GitLab
+          Command would be: ssh-import-id {{ ssh_key_source }}
+          This would import public keys for user: {{ key_username }}
+          Keys would be added to ~/.ssh/authorized_keys
+      when: key_provider in ['gl', 'gitlab']
+
+    - name: Launchpad key import simulation
+      debug:
+        msg: |
+          📥 Simulating SSH key import from Launchpad
+          Command would be: ssh-import-id {{ ssh_key_source }}
+          This would import public keys for user: {{ key_username }}
+          Keys would be added to ~/.ssh/authorized_keys
+      when: key_provider == 'lp'
+
+    - name: Direct URL key import simulation
+      debug:
+        msg: |
+          📥 Simulating SSH key import from URL
+          Command would be: curl {{ ssh_key_source }} >> ~/.ssh/authorized_keys
+          This would download and append public keys from the URL
+      when: ssh_key_source.startswith('http')
+
+    - name: SSH daemon configuration
+      debug:
+        msg: |
+          🔧 SSH daemon configuration:
+          Port: {{ ssh_port }}
+          PasswordAuthentication: no (keys only)
+          PubkeyAuthentication: yes
+          PermitRootLogin: no
+
+    - name: Security notice
+      debug:
+        msg: |
+          🔒 Security Configuration Applied:
+          - SSH keys imported from {{ ssh_key_source }}
+          - Password authentication disabled
+          - Root login disabled
+          - SSH running on port {{ ssh_port }}
+          - Admin password configured for sudo access
+
+    - name: SSH setup complete
+      debug:
+        msg: "✅ SSH key management setup complete for {{ project_name }}!"

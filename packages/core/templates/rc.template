@@ -1,0 +1,15 @@
+# Aship Configuration File (.ashiprc)
+# Standard INI/RC format configuration for Aship
+
+# Aship home directory path (default: ~/.aship)
+aship_dir = ~/.aship
+
+# Logging level (default: info)
+# Valid values: error, warn, info, verbose, debug, trace
+log_level = info
+
+# Example usage: You can set these values manually or using the CLI:
+# CLI examples:
+#   aship config set aship_dir ~/custom-dir
+#   aship config get aship_dir
+#   aship config list

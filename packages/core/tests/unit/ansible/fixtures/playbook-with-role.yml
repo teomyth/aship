@@ -1,0 +1,12 @@
+---
+- name: Test playbook with role
+  hosts: all
+  become: true
+  roles:
+    - test-role
+  vars:
+    # Override some role defaults
+    web_port: 8080
+    # Add some playbook-specific variables
+    app_name: "Test App"
+    app_version: "1.0.0"

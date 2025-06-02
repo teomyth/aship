@@ -1,0 +1,13 @@
+name: test-single-playbook
+description: Test project with single playbook
+
+# Only one playbook defined
+playbooks:
+  main: site.yml
+
+vars:
+  app_name:
+    type: string
+    description: Application name
+    default: "test-app"
+    required: true

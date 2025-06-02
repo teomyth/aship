@@ -1,0 +1,39 @@
+{
+  "bin": "cyan",
+  "command": "cyan",
+  "commandSummary": "white",
+  "dollarSign": "dim",
+  "flag": "yellow",
+  "flagDefaultValue": "blue",
+  "flagOptions": "green",
+  "flagRequired": "red",
+  "flagSeparator": "dim",
+  "json": {
+    "brace": "magenta",
+    "bracket": "magenta",
+    "colon": "dim",
+    "comma": "dim",
+    "key": "yellow",
+    "string": "green",
+    "number": "cyan",
+    "boolean": "blue",
+    "null": "red"
+  },
+  "sectionDescription": "white",
+  "sectionHeader": "bold.underline.cyan",
+  "topic": "cyan",
+  "version": "dim",
+  "aship": {
+    "commandPrefix": "blue",
+    "commandText": "magenta.bold",
+    "success": "green",
+    "error": "red",
+    "warning": "yellow",
+    "info": "blue",
+    "label": "dim",
+    "value": "bold",
+    "separator": "dim",
+    "highlight": "cyan.bold",
+    "muted": "gray"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "push": true
+  },
+  "npm": {
+    "publish": false,
+    "skipChecks": true
+  },
+  "hooks": {
+    "before:init": ["pnpm run lint", "pnpm run test"],
+    "after:bump": ["pnpm run build", "pnpm -r publish --access public --no-git-checks"],
+    "after:release": "echo Successfully released ${name} v${version} to ${repo.repository} and NPM."
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular",
+      "infile": "CHANGELOG.md"
+    },
+    "@release-it/bumper": {
+      "out": [
+        {
+          "file": "packages/cli/package.json",
+          "path": "version"
+        },
+        {
+          "file": "packages/core/package.json",
+          "path": "version"
+        },
+        {
+          "file": "packages/aship/package.json",
+          "path": "version"
+        }
+      ]
+    }
+  }
+}

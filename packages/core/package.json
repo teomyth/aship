@@ -1,0 +1,56 @@
+{
+  "name": "@aship/core",
+  "version": "0.0.0",
+  "description": "Core library for Aship - Ansible management APIs, SSH connections, and configuration handling",
+  "keywords": ["ansible", "core", "api", "ssh", "server", "configuration", "validation", "library"],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": ["dist", "templates"],
+  "author": "teomyth <teomyth@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teomyth/aship",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/teomyth/aship/issues"
+  },
+  "homepage": "https://github.com/teomyth/aship/tree/main/packages/core#readme",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist node_modules",
+    "test": "vitest run",
+    "test:dev": "vitest",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src",
+    "fix": "biome check --write src && biome format --write src"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "execa": "^9.6.0",
+    "figures": "^6.1.0",
+    "inquirer": "^12.6.3",
+    "is-reachable": "^5.2.1",
+    "js-yaml": "^4.1.0",
+    "node-fetch": "^3.3.2",
+    "node-ssh": "^13.2.1",
+    "tar": "^7.4.3",
+    "uuid": "^11.1.0",
+    "zod": "^3.25.46"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.8",
+    "@types/js-yaml": "^4.0.9",
+    "@types/ssh2": "^1.15.5",
+    "@types/uuid": "^10.0.0",
+    "ssh2": "^1.16.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "name": "aship-monorepo",
+  "version": "0.0.0",
+  "description": "A zero-config Ansible tool for simplified deployments and flexible host management",
+  "keywords": [
+    "ansible",
+    "devops",
+    "automation",
+    "server",
+    "configuration",
+    "deployment",
+    "infrastructure",
+    "cli"
+  ],
+  "author": "teomyth <teomyth@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teomyth/aship"
+  },
+  "bugs": {
+    "url": "https://github.com/teomyth/aship/issues"
+  },
+  "homepage": "https://github.com/teomyth/aship#readme",
+  "scripts": {
+    "build": "turbo run build",
+    "build:sequential": "pnpm --filter @aship/core build && pnpm --filter @aship/cli build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "fix": "biome check --write . && biome format --write .",
+    "test": "vitest run",
+    "test:dev": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:dev": "vitest --coverage",
+    "test:coverage:ui": "vitest --coverage --ui",
+    "clean": "turbo run clean",
+    "dev:link": "turbo run build && cd packages/aship && pnpm link --global",
+    "dev:unlink": "pnpm unlink --global aship",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
+    "prepare": "turbo telemetry disable"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@release-it/bumper": "^7.0.5",
+    "@release-it/conventional-changelog": "^10.0.1",
+    "@types/node": "^22.15.29",
+    "@vitest/coverage-v8": "3.1.4",
+    "@vitest/ui": "^3.1.4",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "memfs": "^4.17.2",
+    "release-it": "^19.0.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@10.11.0"
+}

@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "baseUrl": ".",
+    "noImplicitAny": false,
+    "paths": {
+      "@aship/core/*": ["packages/core/src/*"],
+      "@aship/core": ["packages/core/src"],
+      "@aship/cli/*": ["packages/cli/src/*"],
+      "@aship/cli": ["packages/cli/src"]
+    }
+  },
+  "include": [],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"],
+  "references": [
+    {
+      "path": "./packages/core/tsconfig.json"
+    },
+    {
+      "path": "./packages/cli/tsconfig.json"
+    }
+  ]
+}

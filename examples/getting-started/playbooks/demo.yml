@@ -1,0 +1,110 @@
+---
+- name: Aship Demo Playbook
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    # Info tag tasks - Display application information
+    - name: Welcome message
+      debug:
+        msg: |
+          🎉 Welcome to aship Getting Started Demo!
+
+          This playbook demonstrates aship's core features:
+          ✓ Variable collection and validation
+          ✓ Tag-based task execution
+          ✓ Clear output and feedback
+      tags: [info]
+
+    - name: Display collected variables
+      debug:
+        msg: |
+          📋 Variables collected by aship:
+
+          Application Settings:
+          • App Name: {{ app_name }}
+          • Environment: {{ app_environment }}
+          • Port: {{ app_port }}
+          • SSL Enabled: {{ enable_ssl }}
+
+          Services & Frameworks:
+          • Services: {{ services | join(', ') }}
+          • Frameworks: {{ frameworks | join(', ') }}
+
+          Security:
+          • Admin Password: {{ '***MASKED***' if admin_password else 'not set' }}
+      tags: [info]
+
+    # Setup tag tasks - Environment setup
+    - name: Environment setup
+      debug:
+        msg: |
+          🔧 Setting up {{ app_environment }} environment for {{ app_name }}
+
+          Configuration:
+          • Creating application directory: /opt/{{ app_name }}
+          • Configuring port: {{ app_port }}
+          • SSL mode: {{ 'enabled' if enable_ssl else 'disabled' }}
+      tags: [setup]
+
+    - name: Service configuration
+      debug:
+        msg: |
+          ⚙️ Configuring services: {{ services | join(', ') }}
+
+          Each service will be configured with:
+          • Environment: {{ app_environment }}
+          • Port range: {{ app_port }}-{{ app_port + services|length }}
+          • SSL: {{ 'enabled' if enable_ssl else 'disabled' }}
+      tags: [setup]
+
+    # Deploy tag tasks - Application deployment
+    - name: Framework setup
+      debug:
+        msg: |
+          🚀 Setting up frameworks: {{ frameworks | join(', ') }}
+
+          Framework-specific configurations:
+          {% for framework in frameworks %}
+          • {{ framework }}: configured for {{ app_environment }}
+          {% endfor %}
+      tags: [deploy]
+
+    - name: Application deployment
+      debug:
+        msg: |
+          📦 Deploying {{ app_name }} to {{ app_environment }}
+
+          Deployment details:
+          • Target: {{ ansible_hostname | default('localhost') }}
+          • Services: {{ services | length }} service(s)
+          • Frameworks: {{ frameworks | length }} framework(s)
+          • Access URL: {{ 'https' if enable_ssl else 'http' }}://localhost:{{ app_port }}
+      tags: [deploy]
+
+    # Test tag tasks - Application testing
+    - name: Connection test
+      debug:
+        msg: |
+          🧪 Testing application connectivity
+
+          Test results:
+          • Port {{ app_port }}: ✓ Available
+          • SSL check: {{ '✓ Configured' if enable_ssl else '⚠ Disabled' }}
+          • Services: {{ services | length }}/{{ services | length }} ready
+      tags: [test]
+
+    - name: Final status
+      debug:
+        msg: |
+          ✅ Demo completed successfully!
+
+          Summary:
+          • Application: {{ app_name }}
+          • Environment: {{ app_environment }}
+          • Status: Ready
+          • Access: {{ 'https' if enable_ssl else 'http' }}://localhost:{{ app_port }}
+
+          Selected tags executed: {{ ansible_run_tags | default(['all']) | join(', ') }}
+      tags: [info, setup, deploy, test]

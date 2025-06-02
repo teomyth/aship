@@ -1,0 +1,93 @@
+{
+  "name": "@aship/cli",
+  "version": "0.0.0",
+  "description": "A zero-config Ansible tool for simplified deployments and flexible host management",
+  "keywords": [
+    "ansible",
+    "cli",
+    "command-line",
+    "interactive",
+    "deployment",
+    "automation",
+    "devops",
+    "oclif"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "aship": "bin/run.js"
+  },
+  "files": ["/bin", "/dist", "/oclif.manifest.json", "/theme.json"],
+  "author": "teomyth <teomyth@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teomyth/aship",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/teomyth/aship/issues"
+  },
+  "homepage": "https://github.com/teomyth/aship/tree/main/packages/cli#readme",
+  "scripts": {
+    "build": "rm -f tsconfig.tsbuildinfo && tsc --build tsconfig.json",
+    "clean": "rm -rf dist oclif.manifest.json tsconfig.tsbuildinfo",
+    "test": "vitest run",
+    "test:dev": "vitest",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src",
+    "fix": "biome check --write src && biome format --write src",
+    "postpack": "rm -f oclif.manifest.json",
+    "prepack": "npm run build && oclif manifest && oclif readme",
+    "version": "oclif readme && git add README.md"
+  },
+  "dependencies": {
+    "@aship/core": "workspace:*",
+    "@inquirer/search": "^3.0.15",
+    "@oclif/core": "^4.3.0",
+    "@oclif/plugin-help": "^6.2.28",
+    "@oclif/plugin-plugins": "^5.4.38",
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "inquirer": "^12.6.3",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@oclif/prettier-config": "^0.2.1",
+    "@oclif/test": "^4.1.13",
+    "@types/inquirer": "^9.0.8",
+    "@types/js-yaml": "^4.0.9",
+    "memfs": "^4.17.2",
+    "oclif": "^4.17.46",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  },
+  "oclif": {
+    "bin": "aship",
+    "dirname": "aship",
+    "commands": "./dist/commands",
+    "hooks": {
+      "command_not_found": "./dist/hooks/command_not_found"
+    },
+    "plugins": ["@oclif/plugin-help", "@oclif/plugin-plugins"],
+    "helpClass": "./dist/help",
+    "theme": "theme.json",
+    "topicSeparator": " ",
+    "topics": {
+      "host": {
+        "description": "Manage hosts for Ansible automation"
+      },
+      "inventory": {
+        "description": "Manage Ansible inventory generation and integration"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

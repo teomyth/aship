@@ -1,0 +1,41 @@
+{
+  "name": "aship",
+  "version": "0.0.0",
+  "description": "A zero-config Ansible tool for simplified deployments and flexible host management",
+  "type": "module",
+  "bin": {
+    "aship": "bin/run.js"
+  },
+  "files": ["/bin", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "chmod +x bin/run.js",
+    "clean": "echo 'Nothing to clean'"
+  },
+  "dependencies": {
+    "@aship/cli": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "ansible",
+    "devops",
+    "automation",
+    "server",
+    "configuration",
+    "deployment",
+    "infrastructure",
+    "cli",
+    "interactive"
+  ],
+  "author": "teomyth <teomyth@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teomyth/aship"
+  },
+  "bugs": {
+    "url": "https://github.com/teomyth/aship/issues"
+  },
+  "homepage": "https://github.com/teomyth/aship#readme"
+}
