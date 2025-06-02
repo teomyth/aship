@@ -1,12 +1,16 @@
 {
   "name": "aship",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A zero-config Ansible tool for simplified deployments and flexible host management",
   "type": "module",
   "bin": {
     "aship": "bin/run.js"
   },
-  "files": ["/bin", "README.md", "LICENSE"],
+  "files": [
+    "/bin",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "chmod +x bin/run.js",
     "clean": "echo 'Nothing to clean'"
