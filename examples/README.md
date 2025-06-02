@@ -37,11 +37,11 @@ aship setup --skip-vars        # Skip variable collection
 aship setup -y                 # Use defaults, no interaction
 ```
 
-### 2. Cache Management
+### 2. Host Data Management
 ```bash
-aship cache list               # View cache status
-aship cache clear vars         # Clear variable cache
-aship cache clear --all        # Clear all caches
+aship host clear --usage       # Clear host usage history
+aship host clear --recent      # Clear recent connection data
+aship host clear --all         # Clear all host-related data
 ```
 
 ### 3. Different Run Modes
@@ -65,7 +65,7 @@ aship setup --vvv              # Maximum verbosity
 
 1. **Basic Usage**: Run `aship hello` for a simple greeting
 2. **Variable Collection**: Experience `aship setup` interactive process
-3. **Cache Management**: Learn `aship cache` commands
+3. **Host Management**: Learn `aship host` commands
 4. **Advanced Options**: Try different command line options
 
 ## 🎬 Demo Scripts
@@ -91,9 +91,9 @@ This is a pure demonstration project that runs locally and doesn't require real 
 ### What You'll Learn
 
 1. **Variable Collection**: How aship intelligently collects and validates variables
-2. **Caching**: How variables are cached and reused across runs
+2. **Data Persistence**: How variables are cached and reused across runs
 3. **Type System**: Different variable types and their validation
-4. **Cache Management**: How to view and manage cached data
+4. **Host Management**: How to view and manage host configurations
 5. **Project Structure**: Best practices for organizing aship projects
 
 ### Technical Details

@@ -16,10 +16,10 @@ The `tests/helpers/` directory contains utility functions and classes to help wi
 
 ## Running Tests
 
-- Run all tests: `npm test`
-- Run unit tests only: `npx vitest run tests/unit`
-- Run integration tests only: `npx vitest run tests/integration`
-- Run manual tests: `npx vitest run tests/manual` (requires manual setup)
+- Run all tests: `pnpm test`
+- Run unit tests only: `pnpm exec vitest run tests/unit`
+- Run integration tests only: `pnpm exec vitest run tests/integration`
+- Run manual tests: `pnpm exec vitest run tests/manual` (requires manual setup)
 
 ## Best Practices
 

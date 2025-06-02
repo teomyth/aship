@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/@aship/core.svg)](https://badge.fury.io/js/@aship/core)
 
-Core library for Aship, providing APIs and utilities for Ansible management, SSH connections, and configuration handling.
+Core library for aship, providing APIs and utilities for Ansible management, SSH connections, and configuration handling.
 
 This package contains the core business logic and can be used independently to build custom Ansible management tools.
 
@@ -18,6 +18,12 @@ This package provides:
 
 ## 📦 Installation
 
+### Prerequisites
+
+- **Node.js** 18.0.0 or higher
+
+### Install
+
 ```bash
 # Install as dependency
 npm install @aship/core
@@ -31,13 +37,13 @@ pnpm add @aship/core
 ### Configuration Management
 
 ```typescript
-import { ConfigManager, RuntimeConfigManager } from '@aship/core';
+import { ConfigurationManager, RuntimeConfigManager } from '@aship/core';
 
 // Load project configuration
-const configManager = new ConfigManager('/path/to/project');
+const configManager = new ConfigurationManager('/path/to/aship.yml');
 const config = await configManager.loadConfig();
 
-// Manage runtime configuration (servers, cache)
+// Manage runtime configuration (hosts, cache)
 const runtimeManager = new RuntimeConfigManager('/path/to/project');
 const servers = await runtimeManager.loadServers();
 ```
@@ -50,59 +56,62 @@ import { AnsibleExecutor } from '@aship/core';
 // Execute an Ansible playbook
 const executor = new AnsibleExecutor();
 const result = await executor.executePlaybook({
+  servers: [{ hostname: 'example.com', user: 'deploy', port: 22 }],
   playbook: 'playbooks/deploy.yml',
-  inventory: 'inventory/hosts.yml',
   extraVars: {
     environment: 'production',
     version: '1.2.3'
   },
-  tags: ['web', 'database'],
-  verbose: true
+  ansibleArgs: ['--tags', 'web,database', '--verbose'],
+  cwd: '/path/to/project'
 });
 
 // Execute Ansible modules directly
-const moduleResult = await executor.executeModule({
+const moduleResult = await executor.executeAnsible({
+  servers: [{ hostname: 'example.com', user: 'deploy', port: 22 }],
+  pattern: 'all',
   module: 'shell',
   args: 'uptime',
-  inventory: 'localhost,',
-  connection: 'local'
+  cwd: '/path/to/project'
 });
 ```
 
-### Server Management
+### Host Management
 
 ```typescript
-import { ServerManager, GlobalServerManager } from '@aship/core';
+import { HostManager, DirectoryManager } from '@aship/core';
 
-// Project-specific server management
-const serverManager = new ServerManager('/path/to/project');
-const servers = await serverManager.getServers();
+// Host management
+const directoryManager = new DirectoryManager();
+const hostManager = new HostManager(directoryManager);
 
-// Global server management
-const globalManager = new GlobalServerManager();
-await globalManager.addServer({
-  name: 'production-web',
+// Add a host
+await hostManager.addHost({
   hostname: 'prod.example.com',
   user: 'deploy',
   port: 22,
-  description: 'Production web server'
-});
+  description: 'Production web server',
+  source: 'manual'
+}, 'production-web');
+
+// Get all hosts
+const hosts = await hostManager.getHosts();
 ```
 
 ### SSH Connection Management
 
 ```typescript
-import { testConnection, connectToServer } from '@aship/core';
+import { testConnectionWithRetry, connectToServer } from '@aship/core';
 
 // Test SSH connection
-const result = await testConnection({
+const result = await testConnectionWithRetry({
   hostname: 'example.com',
   user: 'deploy',
   port: 22,
   identity_file: '~/.ssh/id_rsa'
 });
 
-// Establish SSH connection with automatic authentication
+// Establish SSH connection
 const connection = await connectToServer({
   hostname: 'example.com',
   user: 'deploy',
@@ -110,102 +119,30 @@ const connection = await connectToServer({
 });
 ```
 
-### Schema Validation
+## 📖 Complete Documentation
 
-```typescript
-import {
-  AshipConfigSchema,
-  ServersConfigSchema,
-  ServerConfigSchema
-} from '@aship/core';
+For comprehensive documentation, examples, and usage patterns:
 
-// Validate project configuration
-const config = AshipConfigSchema.parse(configData);
+**📚 [Complete Documentation on GitHub](https://github.com/teomyth/aship)**
+- API reference and examples
+- Integration guides and patterns
+- Development documentation
+- Example projects using @aship/core
 
-// Validate server configuration
-const servers = ServersConfigSchema.parse(serversData);
+## 🔗 Related Packages
 
-// Validate individual server
-const server = ServerConfigSchema.parse(serverData);
-```
-
-## 📖 Documentation
-
-### 📚 User Documentation
-- **[Getting Started](../../docs/01-GETTING-STARTED.md)** - Installation and quick start guide
-- **[Configuration Reference](../../docs/02-CONFIGURATION.md)** - Complete configuration documentation
-- **[Server Configuration](../../docs/03-SERVER-CONFIGURATION.md)** - Server management guide
-- **[Examples](../../docs/05-EXAMPLES.md)** - Real-world usage examples
-- **[Troubleshooting](../../docs/06-TROUBLESHOOTING.md)** - Common issues and solutions
-
-### 🏗️ Developer Documentation
-- **[CLI Package](../cli/README.md)** - Command-line interface implementation
-- **[Main Package](../aship/README.md)** - Main CLI package
-
-### 💡 Examples
-- **[Getting Started Example](../../examples/getting-started/)** - Core functionality demonstration
-- **[Single Playbook Example](../../examples/single-playbook/)** - Simple core usage
-
-## 🔗 Dependencies
-
-This package depends on:
-- **[zod](https://www.npmjs.com/package/zod)** - Schema validation
-- **[js-yaml](https://www.npmjs.com/package/js-yaml)** - YAML parsing and serialization
-- **[node-ssh](https://www.npmjs.com/package/node-ssh)** - SSH client functionality
-- **[execa](https://www.npmjs.com/package/execa)** - Process execution
-- **[chalk](https://www.npmjs.com/package/chalk)** - Terminal styling
+- **[aship](https://www.npmjs.com/package/aship)** - Main user-facing CLI package
+- **[@aship/cli](https://www.npmjs.com/package/@aship/cli)** - CLI implementation package
 
 ## 🧪 Testing
 
 ```bash
 # Run core tests
-pnpm test:core
+pnpm test
 
-# Run specific test categories
-pnpm test packages/core/tests/unit/
-pnpm test packages/core/tests/integration/
-
-# Run with coverage
-pnpm test:coverage
+# Run tests in development mode
+pnpm test:dev
 ```
-
-## 🛠️ Development
-
-### Project Structure
-```
-packages/core/
-├── src/
-│   ├── ansible/          # Ansible integration
-│   │   ├── executor.ts   # Playbook execution
-│   │   └── inventory.ts  # Inventory management
-│   ├── config/           # Configuration management
-│   │   ├── manager.ts    # Project configuration
-│   │   └── runtime-config-manager.ts
-│   ├── schemas/          # Zod validation schemas
-│   │   ├── aship-config.ts
-│   │   └── servers-config.ts
-│   ├── server/           # Server management
-│   │   ├── manager.ts    # Project servers
-│   │   └── global-manager.ts
-│   ├── ssh/              # SSH functionality
-│   │   ├── connection.ts # Connection handling
-│   │   └── permissions.ts
-│   └── utils/            # Utility functions
-├── tests/                # Test files
-│   ├── unit/            # Unit tests
-│   ├── integration/     # Integration tests
-│   └── fixtures/        # Test fixtures
-└── README.md            # This file
-```
-
-### Key Components
-
-- **Ansible**: Playbook execution and module management
-- **Config**: Project and runtime configuration handling
-- **Schemas**: Zod-based validation for all data structures
-- **Server**: Server configuration and management
-- **SSH**: Connection handling and authentication
-- **Utils**: Shared utility functions and helpers
 
 ## 🔌 Extensibility
 
@@ -213,7 +150,7 @@ The core package is designed to be extensible:
 
 ```typescript
 // Custom configuration manager
-class CustomConfigManager extends ConfigManager {
+class CustomConfigManager extends ConfigurationManager {
   async loadConfig() {
     // Custom configuration loading logic
     return super.loadConfig();
@@ -229,6 +166,10 @@ class CustomAnsibleExecutor extends AnsibleExecutor {
 }
 ```
 
+## 🤝 Contributing
+
+This package is part of the aship project. Please refer to the [main project documentation](https://github.com/teomyth/aship) for contribution guidelines.
+
 ## 📄 License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
+MIT License - see [LICENSE](https://github.com/teomyth/aship/blob/main/LICENSE) for details.

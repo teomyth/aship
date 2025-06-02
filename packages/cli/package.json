@@ -18,12 +18,7 @@
   "bin": {
     "aship": "bin/run.js"
   },
-  "files": [
-    "/bin",
-    "/dist",
-    "/oclif.manifest.json",
-    "/theme.json"
-  ],
+  "files": ["/bin", "/dist", "/oclif.manifest.json", "/theme.json"],
   "author": "teomyth <teomyth@gmail.com>",
   "license": "MIT",
   "publishConfig": {
@@ -48,7 +43,7 @@
     "format": "biome format --write src",
     "fix": "biome check --write src && biome format --write src",
     "postpack": "rm -f oclif.manifest.json",
-    "prepack": "npm run build && oclif manifest && oclif readme",
+    "prepack": "pnpm build && oclif manifest && oclif readme",
     "version": "oclif readme && git add README.md"
   },
   "dependencies": {
@@ -79,10 +74,7 @@
     "hooks": {
       "command_not_found": "./dist/hooks/command_not_found"
     },
-    "plugins": [
-      "@oclif/plugin-help",
-      "@oclif/plugin-plugins"
-    ],
+    "plugins": ["@oclif/plugin-help", "@oclif/plugin-plugins"],
     "helpClass": "./dist/help",
     "theme": "theme.json",
     "topicSeparator": " ",

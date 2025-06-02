@@ -16,9 +16,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "repository": {
     "type": "git",
     "url": "https://github.com/teomyth/aship"
@@ -29,7 +27,6 @@
   "homepage": "https://github.com/teomyth/aship#readme",
   "scripts": {
     "build": "turbo run build",
-    "build:sequential": "pnpm --filter @aship/core build && pnpm --filter @aship/cli build",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -40,6 +37,9 @@
     "test:coverage:dev": "vitest --coverage",
     "test:coverage:ui": "vitest --coverage --ui",
     "clean": "turbo run clean",
+    "dev:setup": "pnpm install && pnpm build && pnpm dev:link && pnpm test",
+    "dev:reset": "pnpm clean && pnpm dev:setup",
+    "dev:check": "pnpm fix && pnpm test",
     "dev:link": "turbo run build && cd packages/aship && pnpm link --global",
     "dev:unlink": "pnpm unlink --global aship",
     "release": "release-it",

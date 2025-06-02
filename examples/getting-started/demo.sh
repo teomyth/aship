@@ -54,7 +54,7 @@ echo
 echo "Advanced options:"
 echo "  $ASHIP_CMD demo -y           # Use defaults, skip prompts"
 echo "  $ASHIP_CMD demo --tags info  # Run only info tasks"
-echo "  $ASHIP_CMD cache list        # View cached variables"
+echo "  $ASHIP_CMD host list         # View configured hosts"
 echo
 echo "Try running one of these commands to see aship in action!"
 echo
