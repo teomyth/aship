@@ -1,6 +1,6 @@
 {
   "name": "aship-monorepo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A zero-config Ansible tool for simplified deployments and flexible host management",
   "keywords": [
     "ansible",
@@ -16,7 +16,9 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/teomyth/aship"
