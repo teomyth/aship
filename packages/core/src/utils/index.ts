@@ -11,6 +11,8 @@ export * from './logger.js';
 export * from './ssh-diagnostics.js';
 export * from './file-resolver.js';
 export * from './string.js';
+export * from './network-error-detector.js';
+export * from './ssh-auth-detector.js';
 
 import cacheManager from './cache-manager.js';
 import connectionHistory, { ConnectionHistoryManager } from './connection-history.js';

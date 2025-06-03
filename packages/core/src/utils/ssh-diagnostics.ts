@@ -63,7 +63,7 @@ export async function runEnhancedDiagnostics(
   sshLogger.verbose('→ Running connection diagnostics...');
   sshLogger.debug('Using system SSH for connection diagnostics...');
 
-  // 设置更详细的日志级别用于诊断
+  // Set more detailed log level for diagnostics
   const originalVerbosity = sshLogger.getVerbosity();
   if (options.verbosity && options.verbosity >= 3) {
     sshLogger.debug('Setting maximum verbosity for detailed diagnostics');
@@ -74,12 +74,12 @@ export async function runEnhancedDiagnostics(
     suppressDebugOutput: options.suppressDebugOutput,
   });
 
-  // 恢复原来的日志级别
+  // Restore original log level
   if (options.verbosity && options.verbosity >= 3) {
     sshLogger.setVerbosity(originalVerbosity);
   }
 
-  // 记录诊断结果
+  // Record diagnostic results
   sshLogger.debug('Diagnostics result:', {
     overallSuccess: diagnostics.overallSuccess,
     primaryIssue: diagnostics.primaryIssue,
@@ -165,7 +165,7 @@ export async function runEnhancedDiagnostics(
   if (result.sshAuthentication.success) {
     sshLogger.success('Connection successful!');
     if (result.sshAuthentication.method) {
-      // 特殊处理password-possible和password-required状态
+      // Special handling for password-possible and password-required states
       if (
         result.sshAuthentication.method === 'password-possible' ||
         result.sshAuthentication.method === 'password-required'
@@ -173,8 +173,8 @@ export async function runEnhancedDiagnostics(
         sshLogger.info(
           `Using password authentication: ${result.sshAuthentication.keyPath || '~/.ssh/id_rsa'}`
         );
-        // 更新状态以便其他代码知道需要密码认证
-        result.sshAuthentication.status = 'rejected'; // 标记为需要密码认证
+        // Update status so other code knows password authentication is needed
+        result.sshAuthentication.status = 'rejected'; // Mark as requiring password authentication
       } else if (result.sshAuthentication.method === 'key') {
         sshLogger.info(
           `Using key authentication: ${result.sshAuthentication.keyPath || '~/.ssh/id_rsa'}`

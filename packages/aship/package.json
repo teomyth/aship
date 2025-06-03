@@ -6,11 +6,7 @@
   "bin": {
     "aship": "bin/run.js"
   },
-  "files": [
-    "/bin",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["/bin", "README.md", "LICENSE"],
   "scripts": {
     "build": "chmod +x bin/run.js",
     "clean": "echo 'Nothing to clean'"

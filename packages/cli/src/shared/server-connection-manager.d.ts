@@ -72,12 +72,5 @@ export declare function determineConnectionMode(options: any, globalOptions: any
  * @returns Configuration object
  */
 export declare function loadConfiguration(currentDir: string): Promise<any>;
-/**
- * Save partial connection information
- * This function saves connection information even if the connection process was interrupted
- * @param host Host name or IP address
- * @param user Username
- * @returns True if connection information was saved, false otherwise
- */
-export declare function savePartialConnectionInfo(host?: string, user?: string): Promise<boolean>;
+
 //# sourceMappingURL=server-connection-manager.d.ts.map

@@ -1,5 +1,4 @@
 import {
-  type ConnectionInfo,
   type ServerConfig,
   diagnoseConnection,
   getLastConnection,
@@ -654,6 +653,9 @@ export async function resolveTargetServers(
           // Clean password input
           const password = cleanUserInput(passwordResponse.password);
 
+          // Save password in session manager BEFORE testing
+          sessionPasswordManager.savePassword(actualHost, finalUser, password);
+
           // Create server config with password authentication
           directServerConfig = {
             name: tempServerName,
@@ -664,14 +666,14 @@ export async function resolveTargetServers(
           };
 
           // Test the password authentication
-          logger.verbose('Testing connection with password...');
+          logger.verbose(
+            `Testing connection with password for ${finalUser}@${actualHost}:${finalPort}...`
+          );
+
           const passwordTestResult = await testConnection(directServerConfig);
 
           if (passwordTestResult.success) {
             logger.success('Password authentication successful!');
-
-            // Save password in session manager for Ansible to use
-            sessionPasswordManager.savePassword(actualHost, finalUser, password);
 
             // Add the temporary server to the configuration
             if (!config.servers) {
@@ -696,126 +698,161 @@ export async function resolveTargetServers(
           }
         }
       } else {
-        logger.warn(diagnostics.detailedMessage);
+        // Check for underlying network connection issues (DNS resolution, network connectivity, port issues, etc.)
+        if (diagnostics.primaryIssue === 'network') {
+          logger.error(diagnostics.detailedMessage);
+          process.exit(1);
+        }
+
+        if (diagnostics.primaryIssue === 'port') {
+          logger.error(diagnostics.detailedMessage);
+          process.exit(1);
+        }
 
         // Handle authentication issues
-        // Determine default auth type from last connection
-        const defaultAuthType = lastConnection?.authType || 'key';
+        if (diagnostics.primaryIssue === 'authentication') {
+          // Pre-declare authentication method variable, default to key authentication
+          let authResponse: { authType: string } = { authType: 'key' };
 
-        const authResponse = await inquirer.prompt([
-          {
-            type: 'list',
-            name: 'authType',
-            message: 'Authentication method:',
-            choices: [
-              { name: 'Password', value: 'password' },
-              { name: 'SSH Key', value: 'key' },
-            ],
-            default: defaultAuthType,
-          },
-        ]);
+          // Check if server only supports one authentication method
+          if (diagnostics.sshAuthentication.method === 'password-required') {
+            // Server only supports password authentication, go directly to password input
+            logger.info('Server only supports password authentication.');
+            authResponse = { authType: 'password' };
+          } else if (diagnostics.sshAuthentication.method === 'key-required') {
+            // Server only supports key authentication, skip authentication method selection
+            logger.info('Server only supports key authentication.');
+            authResponse = { authType: 'key' };
+          } else if (diagnostics.sshAuthentication.method === 'password-possible') {
+            // Server supports both password and key authentication, all keys have failed
+            logger.info(
+              'Key authentication failed, server supports multiple authentication methods.'
+            );
 
-        if (authResponse.authType === 'password') {
-          // Loop until password authentication succeeds or user cancels
-          let passwordAuthSuccess = false;
-          let passwordAttempts = 0;
-          const maxPasswordAttempts = 3;
+            // Determine default auth type from last connection
+            const defaultAuthType = lastConnection?.authType || 'key';
 
-          while (!passwordAuthSuccess && passwordAttempts < maxPasswordAttempts) {
-            passwordAttempts++;
-
-            const passwordResponse = await inquirer.prompt([
+            // Only show authentication method selection dialog in this case
+            authResponse = await inquirer.prompt([
               {
-                type: 'password',
-                name: 'password',
-                message: `Password for ${finalUser}@${actualHost}:`,
-                mask: '*',
-                validate: (input: string) => {
-                  if (!input || input.trim() === '') {
-                    return 'Password cannot be empty. Please enter a password.';
-                  }
-                  return true;
+                type: 'list',
+                name: 'authType',
+                message: 'Authentication method:',
+                choices: [
+                  { name: 'Password', value: 'password' },
+                  { name: 'SSH Key', value: 'key' },
+                ],
+                default: defaultAuthType,
+              },
+            ]);
+          } else {
+            // For other cases, use default key authentication
+            const defaultAuthType = lastConnection?.authType || 'key';
+            authResponse = { authType: defaultAuthType };
+          }
+
+          if (authResponse.authType === 'password') {
+            // Loop until password authentication succeeds or user cancels
+            let passwordAuthSuccess = false;
+            let passwordAttempts = 0;
+            const maxPasswordAttempts = 3;
+
+            while (!passwordAuthSuccess && passwordAttempts < maxPasswordAttempts) {
+              passwordAttempts++;
+
+              const passwordResponse = await inquirer.prompt([
+                {
+                  type: 'password',
+                  name: 'password',
+                  message: `Password for ${finalUser}@${actualHost}:`,
+                  mask: '*',
+                  validate: (input: string) => {
+                    if (!input || input.trim() === '') {
+                      return 'Password cannot be empty. Please enter a password.';
+                    }
+                    return true;
+                  },
                 },
+              ]);
+
+              // Clean password input
+              const password = cleanUserInput(passwordResponse.password);
+
+              // Save password in session manager BEFORE testing
+              sessionPasswordManager.savePassword(actualHost, finalUser, password);
+
+              // Create server config with password authentication
+              const tempServerName = `temp-${actualHost.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              directServerConfig = {
+                name: tempServerName,
+                hostname: actualHost,
+                port: finalPort,
+                user: finalUser,
+                // No identity_file for password auth - SSH will handle password prompting
+              };
+
+              logger.verbose('Testing connection with password...');
+
+              // Test connection with password
+              const testResult = await testConnection(directServerConfig);
+
+              if (testResult.success) {
+                logger.success('Password authentication successful!');
+                passwordAuthSuccess = true;
+              } else {
+                if (passwordAttempts < maxPasswordAttempts) {
+                  logger.error('Password authentication failed. Please try again.');
+                } else {
+                  logger.error('Maximum password attempts reached. Authentication failed.');
+                  process.exit(1);
+                }
+              }
+            }
+
+            // Set connection status
+            isConnected = true;
+          } else {
+            const keyResponse = await inquirer.prompt([
+              {
+                type: 'input',
+                name: 'keyPath',
+                message: 'Path to SSH key:',
+                default:
+                  lastConnection?.authType === 'key' ? lastConnection.authValue : '~/.ssh/id_rsa',
               },
             ]);
 
-            // Clean password input
-            const password = cleanUserInput(passwordResponse.password);
-
-            // Create server config with password authentication
+            // Create server config with key authentication
             const tempServerName = `temp-${actualHost.replace(/[^a-zA-Z0-9]/g, '-')}`;
             directServerConfig = {
               name: tempServerName,
               hostname: actualHost,
               port: finalPort,
               user: finalUser,
-              // No identity_file for password auth - SSH will handle password prompting
+              identity_file: keyResponse.keyPath,
             };
 
-            // Save password in session manager for Ansible to use
-            sessionPasswordManager.savePassword(actualHost, finalUser, password);
+            // Test connection with key
+            logger.verbose('Testing connection with key...');
+            const keyResult = await testConnection(directServerConfig);
 
-            logger.verbose('Testing connection with password...');
-
-            // Test connection with password
-            const testResult = await testConnection(directServerConfig);
-
-            if (testResult.success) {
-              logger.success('Password authentication successful!');
-              passwordAuthSuccess = true;
+            if (keyResult.success) {
+              logger.success('Connection successful!');
+              isConnected = true;
             } else {
-              if (passwordAttempts < maxPasswordAttempts) {
-                logger.error('Password authentication failed. Please try again.');
-              } else {
-                logger.error('Maximum password attempts reached. Authentication failed.');
-                process.exit(1);
-              }
+              logger.error(`Connection failed: ${keyResult.message}`);
+              process.exit(1);
             }
           }
 
-          // Set connection status
-          isConnected = true;
-        } else {
-          const keyResponse = await inquirer.prompt([
-            {
-              type: 'input',
-              name: 'keyPath',
-              message: 'Path to SSH key:',
-              default:
-                lastConnection?.authType === 'key' ? lastConnection.authValue : '~/.ssh/id_rsa',
-            },
-          ]);
-
-          // Create server config with key authentication
-          const tempServerName = `temp-${actualHost.replace(/[^a-zA-Z0-9]/g, '-')}`;
-          directServerConfig = {
-            name: tempServerName,
-            hostname: actualHost,
-            port: finalPort,
-            user: finalUser,
-            identity_file: keyResponse.keyPath,
-          };
-
-          // Test connection with key
-          logger.verbose('Testing connection with key...');
-          const keyResult = await testConnection(directServerConfig);
-
-          if (keyResult.success) {
-            logger.success('Connection successful!');
-            isConnected = true;
-          } else {
-            logger.error(`Connection failed: ${keyResult.message}`);
-            process.exit(1);
+          // Add the temporary server to the configuration if connected
+          if (isConnected && directServerConfig) {
+            if (!config.servers) {
+              config.servers = [];
+            }
+            config.servers.push(directServerConfig);
+            targetServerNames = [directServerConfig.name];
           }
-        }
-
-        // Add the temporary server to the configuration if connected
-        if (isConnected && directServerConfig) {
-          if (!config.servers) {
-            config.servers = [];
-          }
-          config.servers.push(directServerConfig);
-          targetServerNames = [directServerConfig.name];
         }
       }
 
@@ -1368,70 +1405,6 @@ async function resolveSelectedServers(
   }
 
   return servers;
-}
-
-/**
- * Save partial connection information
- * This function saves connection information even if the connection process was interrupted
- * @param host Host name or IP address
- * @param user Username
- * @returns True if connection information was saved, false otherwise
- */
-export async function savePartialConnectionInfo(host?: string, user?: string): Promise<boolean> {
-  if (!host) {
-    return false;
-  }
-
-  // Clean host and user inputs
-  const cleanHost = cleanUserInput(host);
-  const cleanUser = user ? cleanUserInput(user) : undefined;
-
-  try {
-    // Only save if the host is not the default value
-    if (cleanHost !== 'example.com' && cleanHost !== '') {
-      // Create a unique name for the connection
-      const name = `temp-${(cleanHost || '').replace(/[^a-zA-Z0-9]/g, '-')}`;
-
-      const connectionInfo: ConnectionInfo = {
-        host: cleanHost || '',
-        user: cleanUser || 'root',
-        authType: 'key',
-        authValue: '~/.ssh/id_rsa',
-        port: 22,
-        lastUsed: Date.now(),
-        name,
-      };
-
-      // Save connection info
-
-      try {
-        // Save to connection history
-        const { ConnectionHistoryManager } = await import('@aship/core');
-        const historyManager = new ConnectionHistoryManager();
-
-        await historyManager.addConnection({
-          host: connectionInfo.host,
-          username: connectionInfo.user,
-          port: connectionInfo.port || 22,
-          identity_file: connectionInfo.authValue,
-          lastUsed: Date.now(),
-        });
-
-        logger.debug(`Saved connection info for ${connectionInfo.user}@${connectionInfo.host}`);
-      } catch (error) {
-        logger.warn(
-          `Failed to save connection information: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-      return true;
-    }
-    return false;
-  } catch (error) {
-    logger.warn(
-      `Failed to save partial connection information: ${error instanceof Error ? error.message : String(error)}`
-    );
-    return false;
-  }
 }
 
 /**

@@ -2,76 +2,109 @@
  * Unit tests for network connectivity functions
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { testNetworkConnectivity } from '../../../src/utils/ssh.js';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { diagnoseNetworkConnectivity } from '../../../src/utils/network-error-detector.js';
 
-// Mock the is-reachable module that testNetworkConnectivity actually uses
-vi.mock('is-reachable', () => ({
-  default: vi.fn(),
+// Mock the Node.js dns module
+vi.mock('node:dns', () => ({
+  lookup: vi.fn(),
 }));
 
-// Mock the network module
-vi.mock('../../../src/utils/network.js', () => ({
-  testHostReachability: vi.fn(),
+// Mock the Node.js net module
+vi.mock('node:net', () => ({
+  connect: vi.fn(),
 }));
 
 describe('Network connectivity tests', () => {
-  let mockTestHostReachability: any;
+  let mockLookup: any;
+  let mockConnect: any;
 
   beforeEach(async () => {
     // Reset all mocks
     vi.clearAllMocks();
 
-    // Get the mocked function
-    const networkModule = await import('../../../src/utils/network.js');
-    mockTestHostReachability = vi.mocked(networkModule.testHostReachability);
+    // Get the mocked functions
+    const dnsModule = await import('node:dns');
+    const netModule = await import('node:net');
+    mockLookup = vi.mocked(dnsModule.lookup);
+    mockConnect = vi.mocked(netModule.connect);
   });
 
   it('should return success for a reachable host', async () => {
-    // Mock testHostReachability to return success
-    mockTestHostReachability.mockResolvedValue({
-      success: true,
-      message: 'Host reachable-host.com is reachable',
+    // Mock successful DNS resolution
+    mockLookup.mockImplementation((hostname, callback) => {
+      callback(null, '1.2.3.4', 4);
     });
 
+    // Mock successful port connection
+    const mockSocket = {
+      on: vi.fn((event, callback) => {
+        if (event === 'connect') {
+          setTimeout(callback, 10);
+        }
+        return mockSocket;
+      }),
+      removeAllListeners: vi.fn(),
+      destroy: vi.fn(),
+    };
+    mockConnect.mockReturnValue(mockSocket);
+
     // Call the function
-    const result = await testNetworkConnectivity('reachable-host.com');
+    const result = await diagnoseNetworkConnectivity('reachable-host.com', 22);
 
     // Verify the result
-    expect(result.success).toBe(true);
-    expect(result.message).toBe('Host reachable-host.com is reachable');
-    expect(mockTestHostReachability).toHaveBeenCalledWith('reachable-host.com');
+    expect(result.overall.success).toBe(true);
+    expect(result.dns.success).toBe(true);
+    expect(result.port.success).toBe(true);
   });
 
-  it('should return failure for a host that times out', async () => {
-    // Mock testHostReachability to return failure
-    mockTestHostReachability.mockResolvedValue({
-      success: false,
-      message: 'Host timeout-host.com is not reachable',
+  it('should return failure for DNS resolution failure', async () => {
+    // Mock DNS resolution failure
+    mockLookup.mockImplementation((hostname, callback) => {
+      const error = new Error('getaddrinfo ENOTFOUND nonexistent.invalid');
+      (error as any).code = 'ENOTFOUND';
+      callback(error);
     });
 
     // Call the function
-    const result = await testNetworkConnectivity('timeout-host.com');
+    const result = await diagnoseNetworkConnectivity('nonexistent.invalid', 22);
 
     // Verify the result
-    expect(result.success).toBe(false);
-    expect(result.message).toBe('Host timeout-host.com is not reachable');
-    expect(mockTestHostReachability).toHaveBeenCalledWith('timeout-host.com');
+    expect(result.overall.success).toBe(false);
+    expect(result.dns.success).toBe(false);
+    expect(result.dns.error?.type).toBe('dns');
+    expect(result.dns.error?.code).toBe('ENOTFOUND');
   });
 
-  it('should return failure with error message for a host that returns an error', async () => {
-    // Mock testHostReachability to return failure with error
-    mockTestHostReachability.mockResolvedValue({
-      success: false,
-      message: 'Error testing reachability of error-host.com: Connection refused',
+  it('should return failure for port connection failure', async () => {
+    // Mock successful DNS resolution
+    mockLookup.mockImplementation((hostname, callback) => {
+      callback(null, '1.2.3.4', 4);
     });
 
+    // Mock port connection failure
+    const mockSocket = {
+      on: vi.fn((event, callback) => {
+        if (event === 'error') {
+          const error = new Error('connect ECONNREFUSED 1.2.3.4:22');
+          (error as any).code = 'ECONNREFUSED';
+          setTimeout(() => callback(error), 10);
+        }
+        return mockSocket;
+      }),
+      removeAllListeners: vi.fn(),
+      destroy: vi.fn(),
+    };
+    mockConnect.mockReturnValue(mockSocket);
+
     // Call the function
-    const result = await testNetworkConnectivity('error-host.com');
+    const result = await diagnoseNetworkConnectivity('unreachable-host.com', 22);
 
     // Verify the result
-    expect(result.success).toBe(false);
-    expect(result.message).toBe('Error testing reachability of error-host.com: Connection refused');
-    expect(mockTestHostReachability).toHaveBeenCalledWith('error-host.com');
+    expect(result.overall.success).toBe(false);
+    expect(result.dns.success).toBe(true);
+    expect(result.port.success).toBe(false);
+    expect(result.port.error?.type).toBe('port');
+    expect(result.port.error?.code).toBe('ECONNREFUSED');
   });
 });

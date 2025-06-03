@@ -323,6 +323,19 @@ export async function testConnectionWithSystemSSH(
       };
     }
 
+    // Special detection for hostname resolution errors
+    if (
+      stderr.includes('Could not resolve hostname') ||
+      stderr.includes('nodename nor servname provided, or not known') ||
+      stderr.includes('Name or service not known')
+    ) {
+      return {
+        success: false,
+        message: `SSH connection error: Host cannot be resolved. Please check if the server exists and hostname is correct. Error: ${stderr}`,
+        method: 'hostname_unresolvable',
+      };
+    }
+
     // Report the error
     return {
       success: false,
@@ -470,6 +483,19 @@ export async function testConnectionWithPassword(
   // Determine whether to use verbose mode (-v) based on suppressDebugOutput option
   const verboseFlag = options.suppressDebugOutput ? '' : '-v';
 
+  // Debug information (without exposing password)
+  if (!options.suppressDebugOutput) {
+    const { default: logger } = await import('../utils/logger.js');
+    const sshLogger = logger.createChild('ssh');
+    sshLogger.debug(
+      `Testing password authentication for ${server.user}@${server.hostname}:${server.port}`
+    );
+    sshLogger.debug(`Password length: ${password.length} characters`);
+    sshLogger.debug(
+      `Password contains special chars: ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~$]/.test(password)}`
+    );
+  }
+
   // First try using expect script to automatically enter password
   const expectScript = `
 expect << EOF
@@ -487,7 +513,7 @@ EOF
     // Try using expect script
     await execPromise(expectScript);
 
-    // 如果成功，返回成功结果
+    // If successful, return success result
     return {
       success: true,
       message: 'Connection successful',
@@ -495,6 +521,16 @@ EOF
       user: server.user,
     };
   } catch (_expectError: any) {
+    // Debug information for expect failure
+    if (!options.suppressDebugOutput) {
+      const { default: logger } = await import('../utils/logger.js');
+      const sshLogger = logger.createChild('ssh');
+      sshLogger.debug(`expect failed with exit code: ${_expectError.status || 'unknown'}`);
+      sshLogger.debug(`expect stderr: ${_expectError.stderr || ''}`);
+      sshLogger.debug(`expect stdout: ${_expectError.stdout || ''}`);
+      sshLogger.debug(`expect message: ${_expectError.message}`);
+    }
+
     // If expect fails, try using sshpass
     const sshCommand = `sshpass -p "${password}" ssh ${verboseFlag} -o ConnectTimeout=5 -o StrictHostKeyChecking=no -p ${server.port} ${server.user}@${server.hostname} "echo Connection successful"`;
 
@@ -512,6 +548,17 @@ EOF
     } catch (sshpassError: any) {
       // Analyze error information
       const stderr = sshpassError.stderr || '';
+      const stdout = sshpassError.stdout || '';
+
+      // Debug information
+      if (!options.suppressDebugOutput) {
+        const { default: logger } = await import('../utils/logger.js');
+        const sshLogger = logger.createChild('ssh');
+        sshLogger.debug(`sshpass failed with exit code: ${sshpassError.status || 'unknown'}`);
+        sshLogger.debug(`sshpass stderr: ${stderr}`);
+        sshLogger.debug(`sshpass stdout: ${stdout}`);
+        sshLogger.debug(`sshpass message: ${sshpassError.message}`);
+      }
 
       // Check if sshpass is installed
       if (sshpassError.message.includes('command not found')) {
@@ -533,7 +580,7 @@ EOF
             user: server.user,
           };
         } catch (_directSshError: any) {
-          // 即使直接SSH命令失败，我们也假设密码认证是可能的
+          // Even if direct SSH command fails, we assume password authentication is possible
           return {
             success: true,
             message: 'Server requires password authentication',
@@ -543,7 +590,7 @@ EOF
         }
       }
 
-      // 继续处理sshpass的其他错误
+      // Continue processing other sshpass errors
 
       // Check for network connectivity issues
       if (
@@ -567,7 +614,7 @@ EOF
 
       // Check for authentication issues
       if (stderr.includes('Permission denied')) {
-        // 检查是否是密码错误还是其他认证问题
+        // Check if it's a password error or other authentication issue
         if (
           stderr.includes('Permission denied (publickey,password)') ||
           stderr.includes('Permission denied (publickey)')
@@ -639,17 +686,17 @@ export async function diagnoseConnectionWithSystemSSH(
     keyPath: authResult.keyPath || '',
   };
 
-  // 如果服务器配置中已经包含密码，我们应该尝试直接使用密码认证
+  // If the server configuration already contains a password, we should try to use password authentication directly
   // Try to get password from session manager
   const password = sessionPasswordManager.getPassword(server.hostname, server.user);
   if (password) {
-    // 尝试使用密码认证
+    // Try password authentication
     const passwordAuthResult = await testConnectionWithPassword(server, password, {
       suppressDebugOutput: options.suppressDebugOutput,
     });
 
     if (passwordAuthResult.success) {
-      // 密码认证成功
+      // Password authentication successful
       result.sshAuthentication = {
         success: true,
         message: 'Authentication successful with password',
@@ -663,21 +710,29 @@ export async function diagnoseConnectionWithSystemSSH(
     }
   }
 
-  // 处理SSH连接结果
+  // Handle SSH connection results
   if (authResult.success) {
-    // SSH连接成功
+    // SSH connection successful
     result.overallSuccess = true;
     result.primaryIssue = 'none';
     result.detailedMessage = 'Connection successful!';
     return result;
   }
 
-  // SSH连接失败，分析错误原因
+  // Special detection for hostname resolution errors
+  if (authResult.method === 'hostname_unresolvable') {
+    result.networkConnectivity = { success: false, message: 'Host cannot be resolved' };
+    result.primaryIssue = 'network';
+    result.detailedMessage = authResult.message;
+    return result;
+  }
+
+  // SSH connection failed, analyze error cause
   if (!options.suppressDebugOutput) {
     logger.verbose('SSH connection failed, analyzing error...');
   }
 
-  // 检查是否是网络连接问题
+  // Check if it's a network connection issue
   if (
     authResult.message.includes('Connection timed out') ||
     authResult.message.includes('No route to host') ||
@@ -688,7 +743,7 @@ export async function diagnoseConnectionWithSystemSSH(
       logger.verbose('Running network connectivity test...');
     }
 
-    // 进行详细的网络测试
+    // Perform detailed network testing
     try {
       const pingCommand = `ping -c 1 -W 2 ${server.hostname}`;
       await execPromise(pingCommand);
@@ -701,7 +756,7 @@ export async function diagnoseConnectionWithSystemSSH(
     }
   }
 
-  // 检查是否是端口连接问题
+  // Check if it's a port connection issue
   if (
     authResult.message.includes('Connection refused') ||
     authResult.message.includes('port') ||
@@ -711,7 +766,7 @@ export async function diagnoseConnectionWithSystemSSH(
       logger.verbose('Running SSH port connectivity test...');
     }
 
-    // 进行详细的端口测试
+    // Perform detailed port testing
     try {
       const portCommand = `nc -z -w 2 ${server.hostname} ${server.port}`;
       await execPromise(portCommand);
@@ -727,7 +782,7 @@ export async function diagnoseConnectionWithSystemSSH(
     }
   }
 
-  // 如果不是网络或端口问题，则是认证问题
+  // If it's not a network or port issue, then it's an authentication issue
   if (authResult.method === 'password-disabled') {
     result.primaryIssue = 'authentication';
     result.detailedMessage =

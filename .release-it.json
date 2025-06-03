@@ -11,7 +11,10 @@
   },
   "hooks": {
     "before:init": ["pnpm run lint", "pnpm run test"],
-    "after:bump": ["pnpm run build", "pnpm -r exec npm publish --access public"],
+    "after:bump": [
+      "pnpm run build",
+      "pnpm -r exec npm publish --access public"
+    ],
     "after:release": "echo Successfully released ${name} v${version} to ${repo.repository} and NPM."
   },
   "plugins": {

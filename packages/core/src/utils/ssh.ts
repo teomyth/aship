@@ -9,6 +9,18 @@ import { NodeSSH, Config as SSHConfig } from 'node-ssh';
 import { sessionPasswordManager } from '../ssh/session-password-manager.js';
 import type { ServerConfig } from '../types/index.js';
 import logger from './logger.js';
+import {
+  detectNetworkError,
+  detectSshError,
+  diagnoseNetworkConnectivity,
+  getErrorMessage,
+  isRetryableError,
+} from './network-error-detector.js';
+import {
+  detectAuthMethods,
+  determineAuthStrategy,
+  getAuthDescription,
+} from './ssh-auth-detector.js';
 import { diagnoseConnectionWithSystemSSH } from './system-ssh.js';
 
 /**
@@ -36,7 +48,7 @@ export interface ConnectionResult {
  */
 function getDefaultSshKeys(): string[] {
   const sshDir = path.join(os.homedir(), '.ssh');
-  // 优先使用最常见的密钥类型，按使用频率排序
+  // Prioritize the most common key types, sorted by usage frequency
   const defaultKeyNames = ['id_rsa', 'id_ed25519', 'id_ecdsa', 'id_dsa'];
 
   return defaultKeyNames
@@ -59,17 +71,17 @@ function getAllSshKeys(): string[] {
   const keys: string[] = [];
 
   try {
-    // 1. Add standard named keys (优先级最高)
+    // 1. Add standard named keys (highest priority)
     const standardKeys = getDefaultSshKeys();
     keys.push(...standardKeys);
 
-    // 2. 只在标准密钥不存在时才扫描其他文件，以提高性能
+    // 2. Only scan other files when standard keys don't exist, to improve performance
     if (keys.length === 0) {
       // Search for all private key files in ~/.ssh/ directory
       // Private key files typically have no extension and 600 permissions (owner read/write only)
       try {
         const files = fs.readdirSync(sshDir);
-        // 限制扫描的文件数量，避免性能问题
+        // Limit the number of files to scan to avoid performance issues
         const maxFilesToScan = 10;
         let scannedFiles = 0;
 
@@ -86,7 +98,7 @@ function getAllSshKeys(): string[] {
             file === 'known_hosts' ||
             file === 'authorized_keys' ||
             file === 'config' ||
-            file.includes('.') // 跳过有扩展名的文件，私钥通常没有扩展名
+            file.includes('.') // Skip files with extensions, private keys usually have no extension
           ) {
             continue;
           }
@@ -120,7 +132,7 @@ function getAllSshKeys(): string[] {
       }
     }
 
-    // 3. Read SSH config file for specified keys (仅在没有找到标准密钥时)
+    // 3. Read SSH config file for specified keys (only when no standard keys are found)
     if (keys.length === 0) {
       try {
         const configPath = path.join(sshDir, 'config');
@@ -159,7 +171,7 @@ function getAllSshKeys(): string[] {
     // Ignore all errors and return whatever keys we found
   }
 
-  // 限制返回的密钥数量，避免测试太多密钥
+  // Limit the number of returned keys to avoid testing too many keys
   return keys.slice(0, 5);
 }
 
@@ -171,7 +183,7 @@ function getAllSshKeys(): string[] {
  */
 async function testConnectionWithOptions(
   options: SSHConfig,
-  timeout = 3000 // 减少超时时间到3秒，提高响应速度
+  timeout = 3000 // Reduce timeout to 3 seconds to improve response speed
 ): Promise<ConnectionResult> {
   const ssh = new NodeSSH();
 
@@ -239,10 +251,10 @@ async function testConnectionWithOptions(
     // Add more detailed error logging
     sshLogger.verbose(`Connection failed: ${(error as Error).message}`);
 
-    // 检查错误类型并提供更详细的信息
+    // Check error type and provide more detailed information
     const errorMessage = (error as Error).message;
 
-    // 检查是否是密码错误
+    // Check if it's a password error
     if (
       options.password &&
       (errorMessage.includes('Authentication failed') ||
@@ -258,9 +270,9 @@ async function testConnectionWithOptions(
       };
     }
 
-    // 检查是否是SSH密钥错误，并区分不同类型的错误
+    // Check if it's an SSH key error and distinguish different types of errors
     if (options.privateKey) {
-      // 检查密钥格式错误（库不支持的格式）
+      // Check for key format errors (formats not supported by the library)
       if (
         errorMessage.includes('key format') ||
         errorMessage.includes('Cannot parse') ||
@@ -277,7 +289,7 @@ async function testConnectionWithOptions(
         };
       }
 
-      // 检查密钥文件不存在或无法访问
+      // Check if key file doesn't exist or is inaccessible
       if (
         errorMessage.includes('no such file') ||
         errorMessage.includes('ENOENT') ||
@@ -294,7 +306,7 @@ async function testConnectionWithOptions(
         };
       }
 
-      // 检查密钥被服务器拒绝（认证失败）
+      // Check if key is rejected by server (authentication failed)
       if (
         errorMessage.includes('Authentication failed') ||
         errorMessage.includes('Permission denied') ||
@@ -311,7 +323,7 @@ async function testConnectionWithOptions(
         };
       }
 
-      // 其他SSH密钥相关错误
+      // Other SSH key related errors
       sshLogger.verbose(`SSH key authentication failed: ${errorMessage}`);
       return {
         success: false,
@@ -323,24 +335,18 @@ async function testConnectionWithOptions(
       };
     }
 
-    // 检查是否是连接超时
-    if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+    // Use the new network error detector for better error categorization
+    const networkError = detectSshError(error);
+
+    // For network-related errors, provide specific guidance
+    if (networkError.type !== 'unknown') {
       return {
         success: false,
-        message: 'Connection timed out. The server may be unreachable or blocking connections.',
+        message: getErrorMessage(error, 'SSH connection'),
       };
     }
 
-    // 检查是否是连接被拒绝
-    if (errorMessage.includes('ECONNREFUSED')) {
-      return {
-        success: false,
-        message:
-          'Connection refused. The SSH service may not be running or the port may be incorrect.',
-      };
-    }
-
-    // 其他错误
+    // Other errors
     return {
       success: false,
       message: (error as Error).message,
@@ -396,20 +402,20 @@ async function autoConnect(
       // Get all available SSH keys (including custom named keys)
       const allKeys = getAllSshKeys();
 
-      // 跟踪不同类型的密钥错误
+      // Track different types of key errors
       const formatErrors: string[] = [];
       const notFoundErrors: string[] = [];
       const rejectedKeys: string[] = [];
 
       for (const keyPath of allKeys) {
         try {
-          // 首先检查密钥文件是否存在
+          // First check if the key file exists
           if (!fs.existsSync(keyPath)) {
             notFoundErrors.push(keyPath);
             continue;
           }
 
-          // 尝试连接
+          // Try to connect
           const keyResult = await testConnectionWithOptions({
             host,
             port,
@@ -426,7 +432,7 @@ async function autoConnect(
               keyPath,
             };
           }
-          // 根据错误类型进行分类
+          // Classify by error type
           if (keyResult.keyError === 'format') {
             formatErrors.push(keyPath);
             console.log(`Skipping key ${keyPath} due to format error: ${keyResult.message}`);
@@ -451,13 +457,13 @@ async function autoConnect(
     // It's included in the auth methods for completeness
   }
 
-  // 如果所有密钥都尝试过了，提供详细的错误信息
+  // If all keys have been tried, provide detailed error information
   let errorDetails = '';
 
-  // 收集最后一次尝试的密钥错误信息
+  // Collect error information from the last key attempt
   const lastMethod = authMethods[authMethods.length - 1];
   if (lastMethod === 'key') {
-    // 提供一个通用消息
+    // Provide a general message
     errorDetails = 'All SSH keys were tried but none worked. ';
   }
 
@@ -507,13 +513,8 @@ async function testConnection(server: ServerConfig): Promise<ConnectionResult> {
       }
     }
 
-    // If all keys failed, return a failure result
-    return {
-      success: false,
-      message: 'Failed to connect with any available SSH key',
-      method: 'key',
-      user: server.user,
-    };
+    // If all keys failed, continue to try password authentication
+    sshLogger.verbose('All SSH keys failed, continuing to password authentication...');
   }
 
   // Standard authentication with specified credentials
@@ -542,7 +543,6 @@ async function testConnection(server: ServerConfig): Promise<ConnectionResult> {
     }
 
     // If Node.js SSH fails with password, try system SSH as fallback
-    sshLogger.verbose('Node.js SSH password authentication failed, trying system SSH...');
     try {
       const { testConnectionWithPassword } = await import('./system-ssh.js');
       const systemResult = await testConnectionWithPassword(server, password, {
@@ -862,112 +862,6 @@ async function tryConnection(
 }
 
 /**
- * Test network connectivity to a host
- * This function tests if the host is reachable at the network level
- *
- * @param host Hostname or IP address
- * @returns Promise resolving to a boolean indicating if the host is reachable
- */
-async function testNetworkConnectivity(
-  host: string
-): Promise<{ success: boolean; message: string }> {
-  // Import from the network module
-  const { testHostReachability } = await import('./network.js');
-
-  // Special case for localhost and 127.0.0.1
-  if (host === 'localhost' || host === '127.0.0.1') {
-    return { success: true, message: 'Local host is always reachable' };
-  }
-
-  // Use the same test for all addresses, regardless of whether they're private or public
-  return testHostReachability(host);
-}
-
-/**
- * Test SSH port connectivity
- * This function tests if the SSH port is open on the host
- *
- * @param host Hostname or IP address
- * @param port SSH port (default: 22)
- * @returns Promise resolving to a boolean indicating if the SSH port is open
- */
-async function testSSHPortConnectivity(
-  host: string,
-  port = 22
-): Promise<{ success: boolean; message: string }> {
-  // Import from the network module
-  const { testPortReachability } = await import('./network.js');
-
-  // First check if the host is reachable at all
-  const networkResult = await testNetworkConnectivity(host);
-  if (!networkResult.success) {
-    return {
-      success: false,
-      message: `Cannot test SSH port because host is unreachable: ${networkResult.message}`,
-    };
-  }
-
-  // Test SSH port connectivity using testPortReachability
-  try {
-    const result = await testPortReachability(host, port);
-    if (result.success) {
-      return result;
-    }
-    // If testPortReachability fails, try a more direct approach using net module
-    return new Promise(resolve => {
-      import('node:net')
-        .then(netModule => {
-          const net = netModule.default;
-          const socket = new net.Socket();
-
-          socket.setTimeout(3000);
-
-          socket.on('connect', () => {
-            socket.end();
-            resolve({ success: true, message: `SSH port ${port} is open` });
-          });
-
-          socket.on('timeout', () => {
-            socket.destroy();
-            resolve({
-              success: false,
-              message: `SSH port ${port} connection timed out`,
-            });
-          });
-
-          socket.on('error', (err: Error) => {
-            if (err.message.includes('ECONNREFUSED')) {
-              // If connection is refused, the host is reachable but the port is closed
-              resolve({ success: false, message: `SSH port ${port} is closed or blocked` });
-            } else {
-              // For other errors, report failure
-              resolve({
-                success: false,
-                message: `SSH port ${port} connection error: ${err.message}`,
-              });
-            }
-          });
-
-          socket.connect(port, host);
-        })
-        .catch(_err => {
-          // For errors importing the module, report failure
-          resolve({
-            success: false,
-            message: `Failed to test SSH port ${port} connectivity`,
-          });
-        });
-    });
-  } catch (error) {
-    // For errors in the test, report failure
-    return {
-      success: false,
-      message: `Failed to test SSH port ${port} connectivity: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-}
-
-/**
  * Comprehensive connection test
  * This function performs a series of tests to diagnose connection issues:
  * 1. Network connectivity test
@@ -1001,7 +895,7 @@ async function diagnoseConnection(
   server: ServerConfig,
   options: { suppressDebugOutput?: boolean } = {}
 ): Promise<ConnectionDiagnostics> {
-  // 创建SSH日志记录器
+  // Create SSH logger
   const sshLogger = logger.createChild('ssh');
 
   // Try using system SSH command first
@@ -1039,21 +933,52 @@ async function diagnoseConnection(
       detailedMessage: '',
     };
 
-    // Step 1: Test network connectivity
-    result.networkConnectivity = await testNetworkConnectivity(server.hostname);
+    // Use the new comprehensive network diagnostics
+    const networkDiagnostics = await diagnoseNetworkConnectivity(
+      server.hostname,
+      server.port,
+      5000
+    );
 
-    if (!result.networkConnectivity.success) {
-      result.primaryIssue = 'network';
-      result.detailedMessage = `Error: Cannot reach host ${server.hostname}. Please check your network connection or verify the host is online.`;
-      return result;
-    }
+    result.networkConnectivity = {
+      success: networkDiagnostics.dns.success,
+      message: networkDiagnostics.dns.error?.message || 'DNS resolution successful',
+    };
 
-    // Step 2: Test SSH port connectivity
-    result.sshPortConnectivity = await testSSHPortConnectivity(server.hostname, server.port);
+    result.sshPortConnectivity = {
+      success: networkDiagnostics.port.success,
+      message: networkDiagnostics.port.error?.message || 'Port connectivity successful',
+    };
 
-    if (!result.sshPortConnectivity.success) {
-      result.primaryIssue = 'port';
-      result.detailedMessage = `Error: SSH port ${server.port} is not accessible. Please verify the port is correct and SSH service is running.`;
+    if (!networkDiagnostics.overall.success) {
+      // Map the network diagnostic issue types to our interface types
+      switch (networkDiagnostics.overall.primaryIssue) {
+        case 'dns':
+          result.primaryIssue = 'network';
+          break;
+        case 'port':
+          result.primaryIssue = 'port';
+          break;
+        default:
+          result.primaryIssue = 'network';
+          break;
+      }
+
+      // Provide detailed error message with suggestions
+      const primaryError =
+        networkDiagnostics.overall.primaryIssue === 'dns'
+          ? networkDiagnostics.dns.error
+          : networkDiagnostics.port.error;
+
+      if (primaryError) {
+        result.detailedMessage = getErrorMessage(
+          { code: primaryError.code, message: primaryError.message },
+          'Connection'
+        );
+      } else {
+        result.detailedMessage = `Error: ${networkDiagnostics.overall.primaryIssue} connectivity failed`;
+      }
+
       return result;
     }
 
@@ -1067,7 +992,7 @@ async function diagnoseConnection(
         result.primaryIssue = 'none';
         result.detailedMessage = 'Connection successful!';
 
-        // 保存认证方法信息
+        // Save authentication method information
         if (authResult.method) {
           result.sshAuthentication.method = authResult.method;
         }
@@ -1077,7 +1002,7 @@ async function diagnoseConnection(
       } else {
         result.primaryIssue = 'authentication';
 
-        // 保存认证方法信息，即使认证失败
+        // Save authentication method information, even if authentication failed
         if (authResult.method) {
           result.sshAuthentication.method = authResult.method;
         }
@@ -1129,6 +1054,14 @@ export {
   NodeSSH,
   tryConnection,
   diagnoseConnection,
-  testNetworkConnectivity,
-  testSSHPortConnectivity,
+  // Export new network diagnostic functions
+  detectNetworkError,
+  detectSshError,
+  diagnoseNetworkConnectivity,
+  isRetryableError,
+  getErrorMessage,
+  // Export SSH auth detection functions
+  detectAuthMethods,
+  determineAuthStrategy,
+  getAuthDescription,
 };

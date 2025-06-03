@@ -59,7 +59,7 @@ export async function testConnectionWithRetry(
     try {
       // Attempt to diagnose the connection (show debug output for better user experience)
       const diagnostics = await diagnoseConnection(serverConfig, { suppressDebugOutput: false });
-      isConnected = diagnostics.overallSuccess;
+      isConnected = diagnostics?.overallSuccess || false;
 
       if (isConnected) {
         // Connection successful
@@ -67,12 +67,12 @@ export async function testConnectionWithRetry(
         return true;
       }
       // Connection failed -show diagnostic information
-      logger.feedback(`Connection failed: ${diagnostics.primaryIssue}`, false);
-      logger.feedback(diagnostics.detailedMessage, false);
+      logger.feedback(`Connection failed: ${diagnostics?.primaryIssue || 'unknown'}`, false);
+      logger.feedback(diagnostics?.detailedMessage || 'Unknown error', false);
 
       // If it's an authentication issue, break the retry loop
       // Authentication issues need different handling (credential prompts)
-      if (diagnostics.primaryIssue === 'authentication') {
+      if (diagnostics?.primaryIssue === 'authentication') {
         break;
       }
     } catch (error) {
@@ -177,7 +177,7 @@ export async function connectToServer(
   const diagnostics = await diagnoseConnection(initialServerConfig, { suppressDebugOutput: true });
 
   // If it is password authentication, we need special processing
-  if (options.password && diagnostics.primaryIssue === 'authentication') {
+  if (options.password && diagnostics?.primaryIssue === 'authentication') {
     logger.warn('Password authentication detected. Trying direct connection...');
 
     // Try password authentication directly using test connection
@@ -187,12 +187,14 @@ export async function connectToServer(
 
       if (testResult.success) {
         logger.success('Connection successful with password!');
-        diagnostics.overallSuccess = true;
-        diagnostics.primaryIssue = 'none';
-        diagnostics.detailedMessage = 'Connection successful with password';
-        diagnostics.sshAuthentication.success = true;
-        diagnostics.sshAuthentication.message = 'Authentication successful with password';
-        diagnostics.sshAuthentication.method = 'password';
+        if (diagnostics) {
+          diagnostics.overallSuccess = true;
+          diagnostics.primaryIssue = 'none';
+          diagnostics.detailedMessage = 'Connection successful with password';
+          diagnostics.sshAuthentication.success = true;
+          diagnostics.sshAuthentication.message = 'Authentication successful with password';
+          diagnostics.sshAuthentication.method = 'password';
+        }
       }
     } catch (error) {
       logger.error(
@@ -201,9 +203,29 @@ export async function connectToServer(
     }
   }
 
-  const isConnected = diagnostics.overallSuccess;
+  const isConnected = diagnostics?.overallSuccess || false;
 
-  // If connection failed, try to diagnose and fix the issue
+  // Check for hostname resolution errors first
+  if (
+    diagnostics?.primaryIssue === 'network' &&
+    (diagnostics?.detailedMessage?.includes('Could not resolve hostname') ||
+      diagnostics?.detailedMessage?.includes('nodename nor servname provided') ||
+      diagnostics?.detailedMessage?.includes('Name or service not known'))
+  ) {
+    logger.error('Connection failed: Unable to resolve hostname');
+    logger.error('Please check if the server exists and is correctly spelled.');
+
+    if (options.exitOnFailure) {
+      process.exit(0);
+    }
+
+    return {
+      success: false,
+      errorMessage: diagnostics?.detailedMessage || 'Unknown hostname resolution error',
+    };
+  }
+
+  // If connection successful
   if (isConnected) {
     // Connection successful
     logger.success('Connection successful!');
@@ -214,8 +236,8 @@ export async function connectToServer(
 
     // If it is a password authentication requirement, but no password is provided, prompt the user to enter the password
     if (
-      diagnostics.sshAuthentication.method === 'password-required' ||
-      diagnostics.sshAuthentication.method === 'password-possible'
+      diagnostics?.sshAuthentication?.method === 'password-required' ||
+      diagnostics?.sshAuthentication?.method === 'password-possible'
     ) {
       logger.warn('Server requires password authentication.');
 
@@ -270,9 +292,9 @@ export async function connectToServer(
     // prompt for password authentication instead
     else if (
       !options.password &&
-      (!diagnostics.sshAuthentication.success ||
-        diagnostics.detailedMessage.includes('No valid SSH keys found') ||
-        diagnostics.detailedMessage.includes('keys were rejected'))
+      (!diagnostics?.sshAuthentication?.success ||
+        diagnostics?.detailedMessage?.includes('No valid SSH keys found') ||
+        diagnostics?.detailedMessage?.includes('keys were rejected'))
     ) {
       logger.warn('No valid SSH keys found or keys were rejected.');
 
@@ -325,20 +347,20 @@ export async function connectToServer(
       serverConfig,
     };
   }
-  logger.feedback(`Connection failed: ${diagnostics.primaryIssue}`, false);
-  logger.feedback(diagnostics.detailedMessage, false);
+  logger.feedback(`Connection failed: ${diagnostics?.primaryIssue || 'unknown'}`, false);
+  logger.feedback(diagnostics?.detailedMessage || 'Unknown error', false);
 
   // Handle different types of connection issues
-  if (diagnostics.primaryIssue === 'network' || diagnostics.primaryIssue === 'port') {
+  if (diagnostics?.primaryIssue === 'network' || diagnostics?.primaryIssue === 'port') {
     // Handle network or port issues with retry mechanism
     return await handleNetworkIssues(host, port, username, options, diagnostics);
   }
-  if (diagnostics.primaryIssue === 'authentication') {
+  if (diagnostics?.primaryIssue === 'authentication') {
     // Handle authentication issues with interactive credential prompts
     return await handleAuthenticationIssues(host, port, username, options);
   }
   // Handle other issues
-  const errorMessage = `Connection failed: ${diagnostics.primaryIssue}. ${diagnostics.detailedMessage}`;
+  const errorMessage = `Connection failed: ${diagnostics?.primaryIssue || 'unknown'}. ${diagnostics?.detailedMessage || 'Unknown error'}`;
   logger.error(errorMessage);
 
   if (options.exitOnFailure) {
@@ -431,7 +453,7 @@ async function handleNetworkIssues(
 
     // Retry the connection (suppress debug output)
     const retryDiagnostics = await diagnoseConnection(serverConfig, { suppressDebugOutput: true });
-    isConnected = retryDiagnostics.overallSuccess;
+    isConnected = retryDiagnostics?.overallSuccess || false;
 
     if (isConnected) {
       // Connection successful
@@ -445,10 +467,10 @@ async function handleNetworkIssues(
       };
     }
     // Still failed
-    logger.feedback(retryDiagnostics.detailedMessage, false);
+    logger.feedback(retryDiagnostics?.detailedMessage || 'Unknown error', false);
 
     // If it's now an authentication issue, break the retry loop and handle auth
-    if (retryDiagnostics.primaryIssue === 'authentication') {
+    if (retryDiagnostics?.primaryIssue === 'authentication') {
       return await handleAuthenticationIssues(host, port, username, options);
     }
 

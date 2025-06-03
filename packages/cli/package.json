@@ -18,12 +18,7 @@
   "bin": {
     "aship": "bin/run.js"
   },
-  "files": [
-    "/bin",
-    "/dist",
-    "/oclif.manifest.json",
-    "/theme.json"
-  ],
+  "files": ["/bin", "/dist", "/oclif.manifest.json", "/theme.json"],
   "author": "teomyth <teomyth@gmail.com>",
   "license": "MIT",
   "publishConfig": {
@@ -79,10 +74,7 @@
     "hooks": {
       "command_not_found": "./dist/hooks/command_not_found"
     },
-    "plugins": [
-      "@oclif/plugin-help",
-      "@oclif/plugin-plugins"
-    ],
+    "plugins": ["@oclif/plugin-help", "@oclif/plugin-plugins"],
     "helpClass": "./dist/help",
     "theme": "theme.json",
     "topicSeparator": " ",
