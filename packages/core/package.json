@@ -1,6 +1,6 @@
 {
   "name": "@aship/core",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Core library for Aship - Ansible management APIs, SSH connections, and configuration handling",
   "keywords": [
     "ansible",
@@ -15,7 +15,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
-  "files": ["dist", "templates"],
+  "files": [
+    "dist",
+    "templates"
+  ],
   "author": "teomyth <teomyth@gmail.com>",
   "license": "MIT",
   "publishConfig": {
